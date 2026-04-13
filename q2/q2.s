@@ -1,7 +1,23 @@
+.data
+fmt_int: .string "%d"
+fmt_space: .string " "
+fmt_newline: .string "\n"
+
 .text
 .globl main
 
 main:
+    # save preserved registers before doing anything
+    addi sp, sp, -64
+    sd ra, 56(sp)
+    sd s0, 48(sp)
+    sd s1, 40(sp)
+    sd s2, 32(sp)
+    sd s3, 24(sp)
+    sd s4, 16(sp)
+    sd s5, 8(sp)
+    sd s6, 0(sp)
+
     addi s0, a0, -1      # s0 = n = argc - 1
     blez s0, exit        # If n <= 0 (no elements provided), just exit
 
@@ -10,20 +26,17 @@ main:
 
     # Allocate 'arr' array
     mv a0, t0            # Set a0 to number of bytes to allocate
-    li a7, 9             # ecall 9 is sbrk (allocate heap memory)
-    ecall
+    call malloc          # ecall 9 is sbrk (allocate heap memory)
     mv s1, a0            # s1 = base address of 'arr'
 
     # Allocate 'result' array
     mv a0, t0            # a0 is still n * 4
-    li a7, 9
-    ecall
+    call malloc
     mv s2, a0            # s2 = base address of 'result'
 
     # Allocate 'stack' array
     mv a0, t0            # a0 is still n * 4
-    li a7, 9
-    ecall
+    call malloc
     mv s3, a0            # s3 = base address of 'stack'
 
     li s5, 0             # s5 = i (loop counter, starts at 0)
@@ -33,9 +46,9 @@ parse_loop:
 
     # Get the pointer to argv[i + 1] (skipping argv[0] which is "./a.out")
     addi t0, s5, 1       # t0 = i + 1
-    slli t0, t0, 2       # t0 = (i + 1) * 4 (byte offset for pointer array)
+    slli t0, t0, 3       # t0 = (i + 1) * 4 (byte offset for pointer array)
     add t1, s4, t0       # t1 = address of argv[i + 1]
-    lw t2, 0(t1)         # t2 = actual string pointer for argv[i + 1]
+    ld t2, 0(t1)         # t2 = actual string pointer for argv[i + 1]
 
     # Convert string to integer (atoi)
     li t3, 0             # t3 = integer accumulator (starts at 0)
@@ -132,13 +145,13 @@ print_loop:
     lw a0, 0(t1)         # Load the integer directly into a0 for printing
 
     # 2. Print the integer 
-    li a7, 1             # ecall code 1: print integer
-    ecall
+    mv a1, a0            # Move integer to a1 for printf
+    la a0, fmt_int       # Load format string
+    call printf          # ecall code 1: print integer
 
     # 3. Print a space 
-    li a0, 32            # 32 is the ASCII code for a space character ' '
-    li a7, 11            # ecall code 11: print character
-    ecall
+    la a0, fmt_space     # 32 is the ASCII code for a space character ' '
+    call printf          # ecall code 11: print character
 
     # 4. Move to next element 
     addi s5, s5, 1       # i++
@@ -146,10 +159,19 @@ print_loop:
 
 exit:
     # Print a final newline character just to keep the terminal clean
-    li a0, 10            # 10 is the ASCII code for newline '\n'
-    li a7, 11            # ecall code 11: print character
-    ecall
+    la a0, fmt_newline   # 10 is the ASCII code for newline '\n'
+    call printf          # ecall code 11: print character
 
     # Exit the program
-    li a7, 10            # ecall code 10: exit
-    ecall
+    ld ra, 56(sp)        # GCC ABI: Restore registers
+    ld s0, 48(sp)
+    ld s1, 40(sp)
+    ld s2, 32(sp)
+    ld s3, 24(sp)
+    ld s4, 16(sp)
+    ld s5, 8(sp)
+    ld s6, 0(sp)
+    addi sp, sp, 64
+    
+    li a0, 0             # Return 0 (Success)
+    ret                  # ecall code 10: exit

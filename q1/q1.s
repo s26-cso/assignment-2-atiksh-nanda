@@ -13,23 +13,23 @@ make_node:
     # Prologue 
     # Allocate 16 bytes on the stack (must be multiple of 16 for alignment)
     addi sp, sp, -16
-    sw ra, 12(sp)       # Save return address
-    sw s0, 8(sp)        # Save s0 (we'll use it to hold 'val')
+    sd ra, 8(sp)        # Save return address
+    sd s0, 0(sp)        # Save s0 (we'll use it to hold 'val')
 
     # Body 
     mv s0, a0           # Safely tuck 'val' into s0 so malloc doesn't destroy it
 
-    li a0, 12           # Argument for malloc: 12 bytes
+    li a0, 24           # Argument for malloc: 12 bytes
     call malloc         # Call malloc. a0 now holds the pointer to the new memory!
 
     # Now populate the struct at the address in a0
     sw s0, 0(a0)        # node->val = val
-    sw zero, 4(a0)      # node->left = NULL (zero register holds 0)
-    sw zero, 8(a0)      # node->right = NULL
+    sd zero, 8(a0)      # node->left = NULL (zero register holds 0)
+    sd zero, 16(a0)     # node->right = NULL
 
     # Epilogue 
-    lw s0, 8(sp)        # Restore s0
-    lw ra, 12(sp)       # Restore return address
+    ld s0, 0(sp)        # Restore s0
+    ld ra, 8(sp)        # Restore return address
     addi sp, sp, 16     # Deallocate stack frame
     
     ret
@@ -59,13 +59,13 @@ get_loop:
 get_go_right:
     # 5. Otherwise (val > root->val), we go right.
     # Load the right child pointer (offset 8) into a0 and loop
-    lw a0, 8(a0)
+    ld a0, 16(a0)
     j get_loop
 
 get_go_left:
     # 6. Go left logic. 
     # Load the left child pointer (offset 4) into a0 and loop
-    lw a0, 4(a0)
+    ld a0, 8(a0)
     j get_loop
 
 get_end:
@@ -78,11 +78,11 @@ get_end:
 
 insert:
     # --- Prologue ---
-    addi sp, sp, -16
-    sw ra, 12(sp)       # Save return address (crucial because we call make_node)
-    sw s0, 8(sp)        # s0 will hold the original 'root'
-    sw s1, 4(sp)        # s1 will hold 'val'
-    sw s2, 0(sp)        # s2 will hold our moving 'curr' pointer
+    addi sp, sp, -32
+    sd ra, 24(sp)       # Save return address (crucial because we call make_node)
+    sd s0, 16(sp)       # s0 will hold the original 'root'
+    sd s1, 8(sp)        # s1 will hold 'val'
+    sd s2, 0(sp)        # s2 will hold our moving 'curr' pointer
 
     # Save arguments into our saved registers
     mv s0, a0           # s0 = root
@@ -111,7 +111,7 @@ insert_loop:
 
 insert_go_right:
     # 5. val > curr->val (Go right)
-    lw t1, 8(s2)        # t1 = curr->right
+    ld t1, 16(s2)       # t1 = curr->right
     beqz t1, do_insert_right  # If right child is NULL, we found our spot!
     
     # Otherwise, keep moving right
@@ -121,12 +121,12 @@ insert_go_right:
 do_insert_right:
     mv a0, s1           # Argument: val
     call make_node      # a0 = new node pointer
-    sw a0, 8(s2)        # curr->right = new node
+    sd a0, 16(s2)       # curr->right = new node
     j insert_done
 
 insert_go_left:
     # 6. val < curr->val (Go left)
-    lw t1, 4(s2)        # t1 = curr->left
+    ld t1, 8(s2)        # t1 = curr->left
     beqz t1, do_insert_left   # If left child is NULL, we found our spot!
     
     # Otherwise, keep moving left
@@ -136,7 +136,7 @@ insert_go_left:
 do_insert_left:
     mv a0, s1           # Argument: val
     call make_node      # a0 = new node pointer
-    sw a0, 4(s2)        # curr->left = new node
+    sd a0, 8(s2)        # curr->left = new node
     # Fall through to insert_done
 
 insert_done:
@@ -145,11 +145,11 @@ insert_done:
 
 insert_end:
     # --- Epilogue ---
-    lw s2, 0(sp)
-    lw s1, 4(sp)
-    lw s0, 8(sp)
-    lw ra, 12(sp)
-    addi sp, sp, 16
+    ld s2, 0(sp)
+    ld s1, 8(sp)
+    ld s0, 16(sp)
+    ld ra, 24(sp)
+    addi sp, sp, 32
     ret
 
 # int getAtMost(int val, struct Node* root)
@@ -183,12 +183,12 @@ getAtMost_go_right:
 
     # However, there might be a larger valid value down the right subtree.
     # So, go right: root = root->right
-    lw a1, 8(a1)
+    ld a1, 16(a1)
     j getAtMost_loop
 
 getAtMost_go_left:
     # 7. Go left: root = root->left
-    lw a1, 4(a1)
+    ld a1, 8(a1)
     j getAtMost_loop
 
 getAtMost_exact_match:
