@@ -46,26 +46,14 @@ parse_loop:
 
     # Get the pointer to argv[i + 1] (skipping argv[0] which is "./a.out")
     addi t0, s5, 1       # t0 = i + 1
-    slli t0, t0, 3       # t0 = (i + 1) * 4 (byte offset for pointer array)
+    slli t0, t0, 3       # t0 = (i + 1) * 8 (byte offset for pointer array)
     add t1, s4, t0       # t1 = address of argv[i + 1]
-    ld t2, 0(t1)         # t2 = actual string pointer for argv[i + 1]
+    ld a0, 0(t1)         # Load actual string pointer directly into a0 for atoi
 
     # Convert string to integer (atoi)
-    li t3, 0             # t3 = integer accumulator (starts at 0)
-    li t6, 10            # t6 = 10 (multiplier for shifting digits left in base 10)
+    call atoi            # Use standard library atoi (handles negative numbers)
+    mv t3, a0            # Move result to t3 to match your original store logic
 
-atoi_loop:
-    lbu t4, 0(t2)        # Load 1 byte (a char) from the string
-    beqz t4, atoi_done   # If the character is null (0), string is finished
-
-    addi t4, t4, -48     # Convert ASCII char to integer ('0' is ASCII 48)
-    mul t3, t3, t6       # Multiply accumulator by 10
-    add t3, t3, t4       # Add the new digit to accumulator
-
-    addi t2, t2, 1       # Move to the next character in the string
-    j atoi_loop          # Repeat for next char
-
-atoi_done:
     # Store the finished integer into arr[i]
     slli t0, s5, 2       # t0 = i * 4 (byte offset for integers)
     add t1, s1, t0       # t1 = base address of arr + offset
@@ -149,10 +137,15 @@ print_loop:
     la a0, fmt_int       # Load format string
     call printf          # ecall code 1: print integer
 
+    # Check if this is the last element to avoid printing the trailing space
+    addi t6, s0, -1      # t6 = n - 1
+    beq s5, t6, skip_space 
+
     # 3. Print a space 
     la a0, fmt_space     # 32 is the ASCII code for a space character ' '
     call printf          # ecall code 11: print character
 
+skip_space:
     # 4. Move to next element 
     addi s5, s5, 1       # i++
     j print_loop         # Repeat for the next number

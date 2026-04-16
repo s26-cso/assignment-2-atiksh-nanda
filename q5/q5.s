@@ -8,9 +8,17 @@ no_msg:   .asciz "No\n"
 char_buf: .space 1  
 
 .section .text
-.global _start
+.global main
 
-_start:
+main:
+    # PROLOGUE 
+    # Save the return address (ra) and callee-saved registers (s0, s1, s2) 
+    addi sp, sp, -32
+    sd ra, 24(sp)
+    sd s0, 16(sp)
+    sd s1, 8(sp)
+    sd s2, 0(sp)
+
     li a0, -100         # a0 = AT_FDCWD (tells OS to look in current directory)
     la a1, filename     # a1 = pointer to the string "input.txt"
     li a2, 0            # a2 = flags (0 means O_RDONLY, read-only)
@@ -124,7 +132,14 @@ exit_program:
     li a7, 57           # a7 = syscall number for 'close'
     ecall
 
-    # Exit the program cleanly
+    # EPILOGUE 
+    # Exit the program cleanly by returning to C runtime
+    # (Replaces original ecall 93 exit)
     li a0, 0            # a0 = exit code 0 (success)
-    li a7, 93           # a7 = syscall number for 'exit'
-    ecall
+    
+    ld s2, 0(sp)
+    ld s1, 8(sp)
+    ld s0, 16(sp)
+    ld ra, 24(sp)
+    addi sp, sp, 32
+    ret
